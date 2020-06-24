@@ -137,6 +137,11 @@ const expandTree = (vnode) => {
 //
 // renderElement: (vnode) -> expands vnode and returns an HTMLElement tree
 //
+const backRef = (el, vnode) => {
+  el.__vnode = vnode;
+  return el;
+};
+
 const renderElement = (vnode) => {
   if (typeof vnode === "function") {
     vnode = vnode();
@@ -144,19 +149,20 @@ const renderElement = (vnode) => {
 
   // null and booleans are just comments
   if (isEmptyNode(vnode)) {
-    return document.createComment(`(${vnode})`);
+    return backRef(document.createComment(`(${vnode})`), vnode);
   }
 
   // strings just convert to #text nodes
   if (isTextNode(vnode)) {
-    return document.createTextNode(vnode);
+    return backRef(document.createTextNode(vnode), vnode);
   }
 
   // fragments are not real elements in the dom
   if (isFragmentNode(vnode)) {
     const fragment = document.createDocumentFragment();
     vnode.forEach((e) => fragment.appendChild(renderElement(e)));
-    return fragment;
+    vnode.ref = fragment;
+    return backRef(fragment, vnode);
   }
 
   if (isFunctionalComponentNode(vnode)) {
@@ -164,7 +170,8 @@ const renderElement = (vnode) => {
   }
 
   // create a DOM element with the nodeName of our VDOM element:
-  const el = document.createElement(vnode.type);
+  const el = backRef(document.createElement(vnode.type), vnode);
+  vnode.__ref = el;
 
   // copy attributes onto the new node:
   updateElementProps(el, vnode.props);
@@ -225,17 +232,3 @@ function render(vnode, container) {
   container.innerHTML = "";
   container.appendChild(renderElement(vnode));
 }
-
-// Demo App
-const App = ({ text }) => (
-  createElement("div", { class: "App" }, [
-    createElement("h1", null, [text]),
-    createElement("div", null, `The time is now: ${new Date().toLocaleString()}`),
-    createElement("button", { onClick: console.log }, `Click me!`),
-    createElement("div", null, `Button is clicked 0 times!`),
-    false && createElement("div", null, `I'm hidden!`),
-  ])
-);
-
-const app = document.getElementById("app");
-render(createElement(App, { text: "This is a test" }), app);
