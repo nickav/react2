@@ -230,10 +230,88 @@ function render(vnode, container) {
 //
 // update: updates a rendered DOM node
 //
+const computeKey = (vnode, i) => {
+  if (vnode && vnode.props && vnode.props.key) {
+    return vnode.props.key;
+  }
+
+  const key =
+    vnode && vnode.type ? vnode.type.name || vnode.type : typeof vnode;
+
+  return `__react__.${key}-${i}`;
+};
+
+const computeChildKeyMap = (arr) =>
+  arr.reduce(
+    (memo, child, i) => ((memo[computeKey(child, i)] = child), memo),
+    {}
+  );
+
+const shallowEqual = (objA, objB) => {
+  if (Object.is(objA, objB)) {
+    return true;
+  }
+
+  if (typeof objA !== 'object' || objA === null || typeof objB !== 'object' || objB === null) {
+    return false;
+  }
+
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
+
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
+
+  // Test for A's keys different from B.
+  for (let i = 0; i < keysA.length; i++) {
+    if (!objB.hasOwnProperty(keysA[i]) || !Object.is(objA[keysA[i]], objB[keysA[i]])) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const shouldNodeUpdate = (nextVNode, prevVNode) => {
+  if (isLiteralNode(prevVNode)) {
+    return prevVNode !== nextVNode;
+  }
+
+  return (
+    nextVNode.type !== prevVNode.type ||
+    !shallowEqual(nextVNode.props, prevVNode.props) ||
+    !shallowEqual(nextVNode.children, prevVNode.children)
+  );
+};
+
 function update(node) {
   const prevTree = node.childNodes[0].__vnode;
   const nextTree = expandTree(node.__vnode);
 
-  render(node.__vnode, node);
+  // debug
   console.log({ prevTree, nextTree });
+  window.prevTree = prevTree;
+  window.nextTree = nextTree;
+
+  const el = prevTree.__ref;
+  updateElementProps(el, nextTree.props, prevTree.props);
+
+  const prevChildren = prevTree.children;
+  const nextChildren = nextTree.children;
+
+  // Special cases:
+  if (!prevChildren.length && !nextChildren.length) {
+    return;
+  }
+
+  if (prevChildren.length && !nextChildren.length) {
+    el.innerHTML = "";
+    return;
+  }
+
+  if (!prevChildren.length && nextChildren.length) {
+    nextChildren.forEach((child) => el.appendChild(renderElement(child)));
+    return;
+  }
 }

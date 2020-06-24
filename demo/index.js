@@ -7,7 +7,7 @@ const state = {
 };
 
 const App = ({ text }) => {
-  return createElement("div", { class: "App" }, [
+  return createElement("div", { class: "App", "data-rng": Math.random() }, [
     createElement("h1", null, [text]),
     createElement("div", null, `The time is now: ${new Date().toLocaleString()}`),
     createElement("button", { onClick: console.log }, `Click me!`),
@@ -18,3 +18,8 @@ const App = ({ text }) => {
 
 const app = document.getElementById("app");
 render(createElement(App, { text: "This is a test" }), app);
+
+setTimeout(() => {
+  state.times ++;
+  update(app);
+}, 200);
