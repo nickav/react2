@@ -109,17 +109,14 @@ const expandTree = (vnode) => {
     vnode = vnode();
   }
 
-  // null and booleans are just comments
   if (isEmptyNode(vnode)) {
     return vnode;
   }
 
-  // strings just convert to #text nodes
   if (isTextNode(vnode)) {
     return vnode;
   }
 
-  // fragments are not real elements in the dom
   if (isFragmentNode(vnode)) {
     return vnode.map((child) => expandTree(child));
   }
@@ -139,6 +136,7 @@ const expandTree = (vnode) => {
 //
 const backRef = (el, vnode) => {
   el.__vnode = vnode;
+  vnode.__ref = el;
   return el;
 };
 
@@ -171,7 +169,6 @@ const renderElement = (vnode) => {
 
   // create a DOM element with the nodeName of our VDOM element:
   const el = backRef(document.createElement(vnode.type), vnode);
-  vnode.__ref = el;
 
   // copy attributes onto the new node:
   updateElementProps(el, vnode.props);
@@ -190,17 +187,14 @@ const renderString = (vnode) => {
     vnode = vnode();
   }
 
-  // null and booleans are just comments
   if (isEmptyNode(vnode)) {
     return "";
   }
 
-  // strings just convert to #text nodes
   if (isTextNode(vnode)) {
     return vnode;
   }
 
-  // fragments are not real elements in the dom
   if (isFragmentNode(vnode)) {
     return vnode.map((e) => render(e, renderString)).join('\n');
   }
@@ -230,5 +224,16 @@ const renderString = (vnode) => {
 //
 function render(vnode, container) {
   container.innerHTML = "";
-  container.appendChild(renderElement(vnode));
+  backRef(container, vnode).appendChild(renderElement(vnode));
+}
+
+//
+// update: updates a rendered DOM node
+//
+function update(node) {
+  const prevTree = node.childNodes[0].__vnode;
+  const nextTree = expandTree(node.__vnode);
+
+  render(node.__vnode, node);
+  console.log({ prevTree, nextTree });
 }
