@@ -11,7 +11,8 @@ const App = ({ text }) => {
     createElement("h1", null, [text]),
     createElement("div", null, `The time is now: ${new Date().toLocaleString()}`),
     createElement("button", { onClick: console.log }, `Click me!`),
-    createElement("div", null, `Button is clicked ${state.times} times!`),
+    createElement("div", { style: state.times > 3 ? 'background:red' : '' }, `Button is clicked ${state.times} times!`),
+    //state.times < 1 && createElement("div", null, `Goodbye!`),
     state.times >= 3 && createElement("div", null, `You clicked 3 times!`),
   ])
 };
@@ -20,6 +21,6 @@ const app = document.getElementById("app");
 render(createElement(App, { text: "This is a test" }), app);
 
 setTimeout(() => {
-  state.times ++;
+  state.times += 3;
   update(app);
 }, 200);

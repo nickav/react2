@@ -285,20 +285,12 @@ const shouldNodeUpdate = (nextVNode, prevVNode) => {
   );
 };
 
-function update(node) {
-  const prevTree = node.childNodes[0].__vnode;
-  const nextTree = expandTree(node.__vnode);
+function updateTree(nextTree, prevTree) {
+  const parent = prevTree.__ref;
+  updateElementProps(parent, nextTree.props, prevTree.props);
 
-  // debug
-  console.log({ prevTree, nextTree });
-  window.prevTree = prevTree;
-  window.nextTree = nextTree;
-
-  const el = prevTree.__ref;
-  updateElementProps(el, nextTree.props, prevTree.props);
-
-  const prevChildren = prevTree.children;
-  const nextChildren = nextTree.children;
+  const prevChildren = prevTree.children || [];
+  const nextChildren = nextTree.children || [];
 
   // Special cases:
   if (!prevChildren.length && !nextChildren.length) {
@@ -306,12 +298,95 @@ function update(node) {
   }
 
   if (prevChildren.length && !nextChildren.length) {
-    el.innerHTML = "";
+    parent.innerHTML = "";
     return;
   }
 
   if (!prevChildren.length && nextChildren.length) {
-    nextChildren.forEach((child) => el.appendChild(renderElement(child)));
+    nextChildren.forEach((child) => parent.appendChild(renderElement(child)));
     return;
   }
+
+  // Otherwise, we need to go element by element:
+  const prevChildrenKeys = computeChildKeyMap(prevChildren);
+  const nextChildrenKeys = computeChildKeyMap(nextChildren);
+
+  // Handle removed children:
+  for (let i = prevChildren.length - 1; i >= 0; i--) {
+    const child = prevChildren[i];
+    const key = computeKey(child, i);
+
+    console.log(key);
+
+    const wasRemoved = !nextChildrenKeys.hasOwnProperty(key);
+    if (wasRemoved) {
+      parent.removeChild(parent.childNodes[i]);
+    }
+  }
+
+  // Handle added children:
+  for (let i = 0; i < nextChildren.length; i++) {
+    const child = nextChildren[i];
+    const key = computeKey(child, i);
+
+    const wasAdded = nextChildrenKeys.hasOwnProperty(key) && !prevChildrenKeys.hasOwnProperty(key);
+    if (wasAdded) {
+      const html = renderElement(child);
+      const parent = prevTree.__ref;
+
+      if (parent.childNodes[i]) {
+        parent.childNodes[i].before(html);
+      } else {
+        parent.appendChild(html);
+      }
+    }
+  }
+
+  // Handle changed children:
+  for (let i = 0; i < nextChildren.length; i++) {
+    const nextChild = nextChildren[i];
+    const key = computeKey(nextChild, i);
+
+    const wasChanged = nextChildrenKeys.hasOwnProperty(key) && prevChildrenKeys.hasOwnProperty(key);
+    if (!wasChanged) {
+      continue;
+    }
+
+    const prevChild = prevChildren[i];
+
+    const shouldUpdate = shouldNodeUpdate(nextChild, prevChild);
+    if (!shouldUpdate) {
+      continue;
+    }
+
+    // actually update the child:
+    if (isLiteralNode(nextChild)) {
+      const html = renderElement(nextChild);
+      parent.childNodes[i].replaceWith(html);
+      continue;
+    }
+
+     if (isHtmlNode(nextChild)) {
+      updateTree(nextChild, prevChild);
+      continue;
+    }
+
+    //console.log("SHOULD UPDATE: ", { prevChild, nextChild })
+    updateTree(nextChild, prevChild);
+  }
+}
+
+function update(node) {
+  // Node is a DOM node
+  if (node.childNodes && node.childNodes.length) {
+    const prevTree = node.childNodes[0].__vnode;
+    const nextTree = expandTree(node.__vnode);
+    updateTree(nextTree, prevTree);
+    return;
+  }
+
+  // Node is a vnode
+  const prevTree = node;
+  const nextTree = expandTree(node);
+  updateTree(nextTree, prevTree);
 }
